@@ -13,7 +13,6 @@ import com.linkedin.venice.utils.Utils;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Scanner;
@@ -34,6 +33,7 @@ public class DataRecoveryClient {
   private final DataRecoveryExecutor executor;
   private final DataRecoveryEstimator estimator;
   private final DataRecoveryMonitor monitor;
+  private final DataRecoveryExecutionEngine executionEngine = new DataRecoveryExecutionEngine();
 
   public DataRecoveryClient() {
     this(new DataRecoveryExecutor(), new DataRecoveryMonitor(), new DataRecoveryEstimator());
@@ -118,34 +118,27 @@ public class DataRecoveryClient {
     return new ControllerClient(clusterName, url, sslFactory);
   }
 
+  public DataRecoveryExecutionEngine getDataRecoveryExecutionEngine() {
+    return executionEngine;
+  }
+
   public void execute(DataRecoveryParams drParams, StoreRepushCommand.Params cmdParams) {
     Set<String> storeNames = drParams.getRecoveryStores();
-    Map<String, Pair<Boolean, String>> pushMap = getRepushViability(storeNames, cmdParams);
-    Set<String> filteredStoreNames = new HashSet<>();
-
-    for (Map.Entry<String, Pair<Boolean, String>> e: pushMap.entrySet()) {
-      if (e.getValue().getLeft()) {
-        filteredStoreNames.add(e.getKey());
-      } else {
-        this.getExecutor().getSkippedStores().add(e.getKey());
-      }
-    }
-
-    if (!filteredStoreNames.isEmpty()) {
-      if (!drParams.isNonInteractive && !confirmStores(filteredStoreNames)) {
+    if (!storeNames.isEmpty()) {
+      if (!drParams.isNonInteractive && !confirmStores(storeNames)) {
         return;
       }
-      getExecutor().perform(filteredStoreNames, cmdParams);
+      getDataRecoveryExecutionEngine().executeStoreRepush(storeNames, cmdParams);
     } else {
       LOGGER.warn("store list is empty, exit.");
     }
 
     // check if we filtered stores based on push info, report them
-    if (getExecutor().getSkippedStores().size() > 0) {
+    if (getDataRecoveryExecutionEngine().getFailedTasks().size() > 0) {
       LOGGER.info("================");
-      LOGGER.info("STORES STORES WERE SKIPPED:");
-      for (String store: getExecutor().getSkippedStores()) {
-        LOGGER.info(store + " : " + pushMap.get(store).getRight());
+      LOGGER.info("STORES WERE SKIPPED:");
+      for (Pair<String, String> entry: getDataRecoveryExecutionEngine().getFailedTasks()) {
+        LOGGER.info(entry.getLeft() + " : " + entry.getRight());
       }
       LOGGER.info("================");
     }

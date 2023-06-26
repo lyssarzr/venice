@@ -1,5 +1,9 @@
 package com.linkedin.venice.datarecovery;
 
+import java.util.List;
+import java.util.Set;
+
+
 public abstract class Command {
   public abstract void execute();
 
@@ -17,6 +21,22 @@ public abstract class Command {
 
     public void setStore(String store) {
       this.store = store;
+    }
+
+    public abstract static class Builder {
+      protected String store;
+
+      public abstract Command.Params build();
+
+      public abstract List<DataRecoveryTask> buildTasks(Set<String> storeNames);
+
+      public String getStore() {
+        return store;
+      }
+
+      public void setStore(String store) {
+        this.store = store;
+      }
     }
   }
 

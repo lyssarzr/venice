@@ -13,7 +13,10 @@ import com.linkedin.venice.pushmonitor.ExecutionStatus;
 import com.linkedin.venice.security.SSLFactory;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 
 public class MonitorCommand extends Command {
@@ -196,7 +199,7 @@ public class MonitorCommand extends Command {
       return dateTime;
     }
 
-    public static class Builder {
+    public static class Builder extends Command.Params.Builder {
       private String targetRegion;
       private ControllerClient pCtrlCliWithoutCluster;
       private String parentUrl;
@@ -223,6 +226,7 @@ public class MonitorCommand extends Command {
         this(p.targetRegion, p.pCtrlCliWithoutCluster, p.parentUrl, p.sslFactory, p.dateTime);
       }
 
+      @Override
       public MonitorCommand.Params build() {
         MonitorCommand.Params ret = new MonitorCommand.Params();
         ret.targetRegion = targetRegion;
@@ -231,6 +235,18 @@ public class MonitorCommand extends Command {
         ret.sslFactory = sslFactory;
         ret.dateTime = dateTime;
         return ret;
+      }
+
+      @Override
+      public List<DataRecoveryTask> buildTasks(Set<String> storeNames) {
+        List<DataRecoveryTask> tasks = new ArrayList<>();
+        for (String name: storeNames) {
+          MonitorCommand.Params p = this.build();
+          p.setStore(name);
+          DataRecoveryTask.TaskParams taskParams = new DataRecoveryTask.TaskParams(name, p);
+          tasks.add(new DataRecoveryTask(new MonitorCommand(p), taskParams));
+        }
+        return tasks;
       }
 
       public MonitorCommand.Params.Builder setTargetRegion(String targetRegion) {

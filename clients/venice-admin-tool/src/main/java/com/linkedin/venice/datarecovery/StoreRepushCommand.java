@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.lang.StringUtils;
@@ -159,6 +160,10 @@ public class StoreRepushCommand extends Command {
     private String url;
     private Optional<SSLFactory> sslFactory;
 
+    public String getExtraCommandArgs() {
+      return this.extraCommandArgs;
+    }
+
     public String getCommand() {
       return this.command;
     }
@@ -191,7 +196,7 @@ public class StoreRepushCommand extends Command {
       return this.debug;
     }
 
-    public static class Builder {
+    public static class Builder extends Command.Params.Builder {
       private String command;
       private String destFabric;
       private String sourceFabric;
@@ -239,6 +244,7 @@ public class StoreRepushCommand extends Command {
             p.debug);
       }
 
+      @Override
       public StoreRepushCommand.Params build() {
         StoreRepushCommand.Params ret = new StoreRepushCommand.Params();
         ret.command = command;
@@ -251,6 +257,18 @@ public class StoreRepushCommand extends Command {
         ret.sslFactory = sslFactory;
         ret.debug = debug;
         return ret;
+      }
+
+      @Override
+      public List<DataRecoveryTask> buildTasks(Set<String> storeNames) {
+        List<DataRecoveryTask> tasks = new ArrayList<>();
+        for (String name: storeNames) {
+          StoreRepushCommand.Params p = this.build();
+          p.setStore(name);
+          DataRecoveryTask.TaskParams taskParams = new DataRecoveryTask.TaskParams(name, p);
+          tasks.add(new DataRecoveryTask(new StoreRepushCommand(p), taskParams));
+        }
+        return tasks;
       }
 
       public StoreRepushCommand.Params.Builder setCommand(String command) {

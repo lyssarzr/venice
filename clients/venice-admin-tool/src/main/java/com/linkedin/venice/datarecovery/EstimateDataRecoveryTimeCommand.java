@@ -6,8 +6,11 @@ import com.linkedin.venice.meta.RegionPushDetails;
 import com.linkedin.venice.security.SSLFactory;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 
 public class EstimateDataRecoveryTimeCommand extends Command {
@@ -103,7 +106,7 @@ public class EstimateDataRecoveryTimeCommand extends Command {
       return parentUrl;
     }
 
-    public static class Builder {
+    public static class Builder extends Command.Params.Builder {
       private String targetRegion;
       private ControllerClient pCtrlCliWithoutCluster;
       private String parentUrl;
@@ -127,6 +130,7 @@ public class EstimateDataRecoveryTimeCommand extends Command {
         this(p.targetRegion, p.pCtrlCliWithoutCluster, p.parentUrl, p.sslFactory);
       }
 
+      @Override
       public EstimateDataRecoveryTimeCommand.Params build() {
         EstimateDataRecoveryTimeCommand.Params ret = new EstimateDataRecoveryTimeCommand.Params();
         ret.targetRegion = targetRegion;
@@ -134,6 +138,18 @@ public class EstimateDataRecoveryTimeCommand extends Command {
         ret.parentUrl = parentUrl;
         ret.sslFactory = sslFactory;
         return ret;
+      }
+
+      @Override
+      public List<DataRecoveryTask> buildTasks(Set<String> storeNames) {
+        List<DataRecoveryTask> tasks = new ArrayList<>();
+        for (String name: storeNames) {
+          EstimateDataRecoveryTimeCommand.Params p = this.build();
+          p.setStore(name);
+          DataRecoveryTask.TaskParams taskParams = new DataRecoveryTask.TaskParams(name, p);
+          tasks.add(new DataRecoveryTask(new EstimateDataRecoveryTimeCommand(p), taskParams));
+        }
+        return tasks;
       }
 
       public EstimateDataRecoveryTimeCommand.Params.Builder setTargetRegion(String targetRegion) {
